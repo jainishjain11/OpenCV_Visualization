@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="style.css">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
@@ -21,8 +20,20 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
-    <video id="webcam-feed" autoplay playsinline></video>
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <p>Initializing Particle Storm...</p>
+    </div>
+
+    <div id="ui-header">
+        <h1 id="brand-title">Particle Storm</h1>
+        <button id="cam-toggle-btn">Hide Camera</button>
+    </div>
+
+    <video id="webcam-feed" autoplay playsinline muted></video>
+    
     <div id="canvas-container"></div>
+
     <script src="app.js"></script>
 </body>
 </html>

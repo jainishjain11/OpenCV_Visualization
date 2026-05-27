@@ -1,11 +1,30 @@
 const videoElement = document.getElementById('webcam-feed');
 const container = document.getElementById('canvas-container');
-
-// Global array to bridge Machine Learning and Physics
-let interactionPoints = [];
+const loadingScreen = document.getElementById('loading-screen');
+const camToggleBtn = document.getElementById('cam-toggle-btn');
 
 // ==========================================
-// 1. THREE.JS & POST-PROCESSING SETUP
+// 1. UI TOGGLE LOGIC
+// ==========================================
+let isCameraVisible = true;
+
+camToggleBtn.addEventListener('click', () => {
+    isCameraVisible = !isCameraVisible;
+    if (isCameraVisible) {
+        videoElement.classList.remove('hidden-feed');
+        camToggleBtn.innerText = "Hide Camera";
+    } else {
+        videoElement.classList.add('hidden-feed');
+        camToggleBtn.innerText = "Show Camera";
+    }
+});
+
+let interactionPoints = [];
+let targetScale = 1.0;
+let currentScale = 1.0;
+
+// ==========================================
+// 2. THREE.JS & POST-PROCESSING (TRANSPARENT)
 // ==========================================
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -13,34 +32,39 @@ camera.position.z = 30;
 
 const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.toneMapping = THREE.ReinhardToneMapping; // Better exposure for glow
+renderer.setClearColor(0x000000, 0); // Transparent background
+renderer.toneMapping = THREE.ReinhardToneMapping; 
 container.appendChild(renderer.domElement);
 
-// Setup Bloom (Glow Effect)
+const renderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
+    format: THREE.RGBAFormat,
+});
+
 const renderScene = new THREE.RenderPass(scene, camera);
+renderScene.clearColor = new THREE.Color(0, 0, 0);
+renderScene.clearAlpha = 0; 
+
 const bloomPass = new THREE.UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    1.5, // Strength
-    0.4, // Radius
-    0.85 // Threshold
+    1.5, // Bloom Strength
+    0.4, // Bloom Radius
+    0.85 // Bloom Threshold
 );
-const composer = new THREE.EffectComposer(renderer);
+
+const composer = new THREE.EffectComposer(renderer, renderTarget);
 composer.addPass(renderScene);
 composer.addPass(bloomPass);
 
 // ==========================================
-// 2. PARTICLE SYSTEM SETUP
+// 3. PARTICLE SYSTEM (RED SETUP)
 // ==========================================
-const particleCount = 3000;
+const particleCount = 4000;
 const geometry = new THREE.BufferGeometry();
-
 const positions = new Float32Array(particleCount * 3);
 const originalPositions = new Float32Array(particleCount * 3);
 const velocities = new Float32Array(particleCount * 3);
 const colors = new Float32Array(particleCount * 3);
-
 const radius = 10;
-const baseColor = new THREE.Color(0x00ffff); // Cyan
 
 for (let i = 0; i < particleCount; i++) {
     const theta = Math.random() * 2 * Math.PI;
@@ -54,7 +78,8 @@ for (let i = 0; i < particleCount; i++) {
     originalPositions[i * 3] = x; originalPositions[i * 3 + 1] = y; originalPositions[i * 3 + 2] = z;
     velocities[i * 3] = 0; velocities[i * 3 + 1] = 0; velocities[i * 3 + 2] = 0;
     
-    colors[i * 3] = baseColor.r; colors[i * 3 + 1] = baseColor.g; colors[i * 3 + 2] = baseColor.b;
+    // RED BASE COLOR
+    colors[i * 3] = 1.0; colors[i * 3 + 1] = 0.0; colors[i * 3 + 2] = 0.0;
 }
 
 geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -71,7 +96,6 @@ const material = new THREE.PointsMaterial({
 const particleSystem = new THREE.Points(geometry, material);
 scene.add(particleSystem);
 
-// Handle resizing
 window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     composer.setSize(window.innerWidth, window.innerHeight);
@@ -80,26 +104,27 @@ window.addEventListener('resize', () => {
 });
 
 // ==========================================
-// 3. PHYSICS & RENDER LOOP
+// 4. PHYSICS ENGINE
 // ==========================================
 const SPRING_FACTOR = 0.05;
 const DAMPING = 0.85;
-const REPEL_STRENGTH = 0.8; // Slightly stronger push
+const REPEL_STRENGTH = 0.8;
 const INTERACTION_RADIUS = 10;
-
 const tempColor = new THREE.Color();
+const coreHex = new THREE.Color(0xff0000); // RED CORE COLOR
 
 function animate3D() {
     requestAnimationFrame(animate3D);
     
+    // Apply Scale Interpolation
+    currentScale += (targetScale - currentScale) * 0.1;
+    particleSystem.scale.set(currentScale, currentScale, currentScale);
+
     particleSystem.rotation.y += 0.002;
     particleSystem.rotation.x += 0.001;
 
-    const positionsAttribute = geometry.attributes.position;
-    const colorsAttribute = geometry.attributes.color;
-    
-    const currentPositions = positionsAttribute.array;
-    const currentColors = colorsAttribute.array;
+    const currentPositions = geometry.attributes.position.array;
+    const currentColors = geometry.attributes.color.array;
 
     for (let i = 0; i < particleCount; i++) {
         const idx3 = i * 3;
@@ -134,24 +159,26 @@ function animate3D() {
         currentPositions[idx3 + 1] += velocities[idx3 + 1];
         currentPositions[idx3 + 2] += velocities[idx3 + 2];
 
-        // Dynamic Color calculation
+        // Shift color to bright white/orange when particles move fast
         const speed = Math.abs(velocities[idx3]) + Math.abs(velocities[idx3+1]) + Math.abs(velocities[idx3+2]);
-        const hue = 0.5 + (speed * 0.15); // Shift from cyan towards purple/red based on speed
-        tempColor.setHSL(hue, 1.0, 0.6);
+        tempColor.copy(coreHex);
+        
+        if(speed > 0.5) {
+             tempColor.lerp(new THREE.Color(0xffffff), Math.min(speed * 0.2, 1.0));
+        }
 
         currentColors[idx3] = tempColor.r;
         currentColors[idx3 + 1] = tempColor.g;
         currentColors[idx3 + 2] = tempColor.b;
     }
 
-    positionsAttribute.needsUpdate = true;
-    colorsAttribute.needsUpdate = true;
-    
-    composer.render(); // Render using Bloom pass
+    geometry.attributes.position.needsUpdate = true;
+    geometry.attributes.color.needsUpdate = true;
+    composer.render(); 
 }
 
 // ==========================================
-// 4. MACHINE LEARNING (MediaPipe)
+// 5. MACHINE LEARNING & SCALING LOGIC
 // ==========================================
 function mapTo3DSpace(normalizedX, normalizedY) {
     const mappedX = (normalizedX - 0.5) * 40 * -1; 
@@ -159,10 +186,7 @@ function mapTo3DSpace(normalizedX, normalizedY) {
     return { x: mappedX, y: mappedY, z: 10 };      
 }
 
-const hands = new Hands({locateFile: (file) => {
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-}});
-
+const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
 hands.setOptions({
     maxNumHands: 2,
     modelComplexity: 1,
@@ -172,34 +196,54 @@ hands.setOptions({
 
 hands.onResults((results) => {
     interactionPoints = []; 
-    if (results.multiHandLandmarks) {
-        for (const landmarks of results.multiHandLandmarks) {
-            const indexTip = landmarks[8];
-            const palm = landmarks[0];
-            interactionPoints.push(mapTo3DSpace(indexTip.x, indexTip.y));
-            interactionPoints.push(mapTo3DSpace(palm.x, palm.y));
+    
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        if (results.multiHandLandmarks.length === 2) {
+            const p1 = results.multiHandLandmarks[0][8];
+            const p2 = results.multiHandLandmarks[1][8];
+            const distance = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+            targetScale = distance * 4.0; 
+        } else if (results.multiHandLandmarks.length === 1) {
+            const p1 = results.multiHandLandmarks[0][4]; 
+            const p2 = results.multiHandLandmarks[0][8]; 
+            const distance = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+            targetScale = distance * 6.0; 
         }
+
+        targetScale = Math.max(0.3, Math.min(targetScale, 3.5));
+
+        for (const landmarks of results.multiHandLandmarks) {
+            interactionPoints.push(mapTo3DSpace(landmarks[8].x, landmarks[8].y)); 
+            interactionPoints.push(mapTo3DSpace(landmarks[0].x, landmarks[0].y)); 
+        }
+    } else {
+        targetScale = 1.0; 
     }
 });
 
 // ==========================================
-// 5. WEBCAM & INITIALIZATION
+// 6. INITIALIZATION (FORCED AUTO-PLAY FIX)
 // ==========================================
 async function setupWebcam() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 1280, height: 720, facingMode: "user" },
-            audio: false
+            video: { width: 1280, height: 720, facingMode: "user" }, 
+            audio: false 
         });
         videoElement.srcObject = stream;
-        return new Promise((resolve) => {
-            videoElement.onloadedmetadata = () => {
-                videoElement.play();
-                resolve(videoElement);
+        return new Promise(resolve => {
+            videoElement.onloadedmetadata = async () => {
+                try {
+                    await videoElement.play(); // Force play to bypass browser blocks
+                    resolve();
+                } catch (e) {
+                    console.error("Autoplay prevented:", e);
+                    alert("Click anywhere to start the camera.");
+                }
             };
         });
     } catch (error) {
-        console.error("Error accessing webcam:", error);
+        console.error("Camera error:", error);
     }
 }
 
@@ -210,6 +254,8 @@ async function detectionLoop() {
 
 async function initApp() {
     await setupWebcam();
+    await hands.send({image: videoElement}); 
+    loadingScreen.classList.add('hidden'); // Fade out loader
     detectionLoop();
     animate3D(); 
 }

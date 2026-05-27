@@ -1,21 +1,116 @@
-/* Reset default browser margins */
+/* Reset & Base */
 body, html {
     margin: 0;
     padding: 0;
     width: 100%;
     height: 100%;
-    overflow: hidden; /* Prevents scrollbars */
-    background-color: #000; /* Start with a black background for that neon vibe */
+    overflow: hidden; 
+    background-color: #000; /* Shows when the camera is toggled OFF */
 }
 
-/* Hide the raw video feed visually, but keep it in the DOM for MediaPipe to read */
+/* Top UI Header */
+#ui-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 25px 40px;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    z-index: 10; 
+    pointer-events: none; 
+}
+
+#brand-title {
+    margin: 0;
+    color: #ffffff;
+    font-family: 'Georgia', 'Times New Roman', serif; 
+    font-size: 32px;
+    font-weight: normal;
+    text-shadow: 0px 2px 10px rgba(0,0,0,0.8);
+    pointer-events: auto;
+}
+
+#cam-toggle-btn {
+    background: rgba(0, 0, 0, 0.4);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-family: sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(4px);
+}
+
+#cam-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: white;
+}
+
+/* The AR Background */
 #webcam-feed {
-    display: none; 
-}
-
-/* Prepare the container for our future 3D canvas */
-#canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100vw;
     height: 100vh;
-    display: block;
+    object-fit: cover; 
+    transform: scaleX(-1); /* Mirror effect */
+    z-index: 1; 
+    transition: opacity 0.5s ease; 
+}
+
+/* Utility class to hide video visually without breaking the AI tracking */
+.hidden-feed {
+    opacity: 0;
+}
+
+/* The 3D Layer */
+#canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 2; 
+    pointer-events: none; 
+}
+
+/* Loading Screen */
+#loading-screen {
+    position: absolute;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background-color: rgba(0, 0, 0, 1.0);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #ff0000; /* Red loading text to match theme */
+    font-family: sans-serif;
+    transition: opacity 0.8s ease-out;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid rgba(255, 0, 0, 0.3);
+    border-radius: 50%;
+    border-top-color: #ff0000;
+    animation: spin 1s ease-in-out infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.hidden {
+    opacity: 0;
+    pointer-events: none;
 }
