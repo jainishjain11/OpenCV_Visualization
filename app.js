@@ -1,44 +1,82 @@
 // Grab the video element from our HTML
 const videoElement = document.getElementById('webcam-feed');
 
-// Function to start the webcam
+// ==========================================
+// PHASE 2: MediaPipe Hands Setup
+// ==========================================
+
+// 1. Initialize the Hands model and point it to the CDN files
+const hands = new Hands({locateFile: (file) => {
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+}});
+
+// 2. Configure the tracking parameters
+hands.setOptions({
+    maxNumHands: 2,               // Track up to 2 hands
+    modelComplexity: 1,           // Balance between speed and accuracy
+    minDetectionConfidence: 0.7,  // How strict the initial detection is
+    minTrackingConfidence: 0.7    // How strict the continuous tracking is
+});
+
+// 3. The Callback: What happens when a hand is found?
+hands.onResults((results) => {
+    // Check if the model actually sees any hands in the current frame
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        
+        // For testing: Grab the very first hand detected
+        const firstHand = results.multiHandLandmarks[0];
+        
+        // Landmark [0] is the wrist. Landmark [8] is the index fingertip.
+        // Log the X and Y coordinates of the index fingertip to the console
+        const indexTipX = firstHand[8].x.toFixed(3);
+        const indexTipY = firstHand[8].y.toFixed(3);
+        
+        console.log(`Index Fingertip -> X: ${indexTipX}, Y: ${indexTipY}`);
+    }
+});
+
+// ==========================================
+// PHASE 1: Webcam Setup (from before)
+// ==========================================
 async function setupWebcam() {
     try {
-        // Request access to the user's camera (video only, no audio)
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: 1280,
-                height: 720,
-                facingMode: "user" // Prioritizes the front-facing/webcam camera
-            },
+            video: { width: 1280, height: 720, facingMode: "user" },
             audio: false
         });
-
-        // Plug the live stream into our video element
         videoElement.srcObject = stream;
 
-        // Return a promise that resolves when the video is actually playing
         return new Promise((resolve) => {
             videoElement.onloadedmetadata = () => {
+                videoElement.play(); // Ensure the video is playing
                 resolve(videoElement);
             };
         });
-
     } catch (error) {
         console.error("Error accessing the webcam: ", error);
-        alert("Please allow camera permissions to use this experience.");
     }
 }
 
-// Initialize the app
-async function initApp() {
-    console.log("Initializing webcam...");
+// ==========================================
+// THE PIPELINE: Feeding video to the ML Model
+// ==========================================
+async function detectionLoop() {
+    // Send the current frame of the video to MediaPipe for processing
+    await hands.send({image: videoElement});
     
-    await setupWebcam();
-    
-    // If you see this in your browser console, Phase 1 is a success!
-    console.log("Webcam is running and ready for Phase 2!");
+    // Request the next animation frame to keep the loop running continuously
+    requestAnimationFrame(detectionLoop);
 }
 
-// Start the whole process
+// Initialize everything
+async function initApp() {
+    console.log("1. Initializing webcam...");
+    await setupWebcam();
+    console.log("2. Webcam running. Loading Machine Learning model...");
+    
+    // Start the continuous detection loop
+    detectionLoop();
+}
+
+// Start the app
 initApp();
