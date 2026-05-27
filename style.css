@@ -1,0 +1,21 @@
+/* Reset default browser margins */
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* Prevents scrollbars */
+    background-color: #000; /* Start with a black background for that neon vibe */
+}
+
+/* Hide the raw video feed visually, but keep it in the DOM for MediaPipe to read */
+#webcam-feed {
+    display: none; 
+}
+
+/* Prepare the container for our future 3D canvas */
+#canvas-container {
+    width: 100vw;
+    height: 100vh;
+    display: block;
+}
